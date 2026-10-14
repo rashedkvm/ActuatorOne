@@ -1,0 +1,9 @@
+---
+applications:
+- name: actuator-two
+  memory: 1G
+  env:
+    JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 17.+ } }'
+  buildpacks:
+  - jbp-rk-tnz-121831
+  stack: cflinuxfs4

@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>io.spring</groupId>
 	<artifactId>actone</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.3-SNAPSHOT</version>
 	<name>actone</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
@@ -54,5 +54,13 @@
 			</plugin>
 		</plugins>
 	</build>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>snapshots</id>
+            <name>Artifactory SaaS BSG-snapshots</name>
+            <url>https://usw1.packages.broadcom.com/artifactory/tapi-maven-dev-local</url>
+        </snapshotRepository>
+    </distributionManagement>
 
 </project>
