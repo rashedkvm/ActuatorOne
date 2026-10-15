@@ -1,0 +1,8 @@
+settings.xml
+target/*
+!target/*.jar
+.git
+features/
+docs/
+.superpowers/
+.DS_Store

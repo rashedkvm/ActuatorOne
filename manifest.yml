@@ -1,0 +1,10 @@
+applications:
+  - name: actuator-one
+    stack: cflinuxfs4
+    memory: 1G
+    random-route: true
+    buildpacks:
+      - java_buildpack_offline
+    path: target/actone-0.0.3-SNAPSHOT.jar
+    env:
+      JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 17.+ } }'

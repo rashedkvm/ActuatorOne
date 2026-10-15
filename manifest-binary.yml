@@ -1,0 +1,11 @@
+applications:
+  - name: actuator-one-binary
+    stack: cflinuxfs4
+    memory: 1G
+    random-route: true
+    buildpacks:
+      - binary_buildpack
+    path: target/native
+    command: ./actone
+    health-check-type: http
+    health-check-http-endpoint: /actuator/health

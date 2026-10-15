@@ -1,0 +1,29 @@
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE} AS builder
+
+ARG GRAALVM_URL=https://github.com/graalvm/graalvm-ce-builds/releases/download/jdk-21.0.2/graalvm-community-jdk-21.0.2_linux-x64_bin.tar.gz
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl build-essential zlib1g-dev ca-certificates maven \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /opt/graalvm \
+    && curl -fsSL "$GRAALVM_URL" -o /tmp/graalvm.tar.gz \
+    && tar -xzf /tmp/graalvm.tar.gz --strip-components=1 -C /opt/graalvm \
+    && rm /tmp/graalvm.tar.gz
+
+ENV JAVA_HOME=/opt/graalvm
+ENV PATH="/opt/graalvm/bin:${PATH}"
+
+WORKDIR /src
+COPY pom.xml .
+COPY src src
+
+RUN --mount=type=secret,id=m2settings,target=/root/.m2/settings.xml \
+    --mount=type=secret,id=usw1_user \
+    --mount=type=secret,id=usw1_pass \
+    export USW1_ARTIFACTORY_USER="$(cat /run/secrets/usw1_user)" \
+    && export USW1_ARTIFACTORY_PASSWORD="$(cat /run/secrets/usw1_pass)" \
+    && mvn -B -Pnative -DskipTests native:compile
+
+FROM scratch
+COPY --from=builder --chmod=755 /src/target/actone /actone
