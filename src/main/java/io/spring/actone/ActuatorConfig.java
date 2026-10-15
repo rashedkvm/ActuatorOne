@@ -1,0 +1,20 @@
+package io.spring.actone;
+
+import org.springframework.boot.actuate.audit.InMemoryAuditEventRepository;
+import org.springframework.boot.actuate.web.exchanges.InMemoryHttpExchangeRepository;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class ActuatorConfig {
+
+	@Bean
+	InMemoryHttpExchangeRepository httpExchangeRepository() {
+		return new InMemoryHttpExchangeRepository();
+	}
+
+	@Bean
+	InMemoryAuditEventRepository auditEventRepository() {
+		return new InMemoryAuditEventRepository();
+	}
+}

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ActuatorOne</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #202b36;
+      background: #f4f7fa;
+    }
+    body { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem; }
+    h1, h2 { color: #17324d; }
+    h1 { margin-top: 0; }
+    section { margin: 2rem 0; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+    .card, .panel { background: #fff; border: 1px solid #d8e1e9; border-radius: 8px; padding: 1rem; }
+    .card h2 { font-size: 1rem; margin: 0 0 .75rem; }
+    .time { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+    .status, .loading { color: #536576; }
+    .error { color: #a32323; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: .65rem .75rem; text-align: left; border-bottom: 1px solid #e1e7ed; }
+    th { color: #394e60; }
+    a { color: #075a9c; }
+    code { overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ActuatorOne</h1>
+    <p>A quick view of this application's clocks, API routes, and Actuator endpoints.</p>
+  </header>
+
+  <section aria-labelledby="clocks-heading">
+    <h2 id="clocks-heading">Clocks</h2>
+    <div class="cards">
+      <article class="card">
+        <h2>Your browser time</h2>
+        <time class="time" id="browser-time"></time>
+      </article>
+      <article class="card">
+        <h2>Server time (UTC)</h2>
+        <time class="time" id="server-time"></time>
+        <p class="status" id="server-time-status" aria-live="polite">Loading…</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="routes-heading">
+    <h2 id="routes-heading">API routes</h2>
+    <div class="panel" id="routes-content" aria-live="polite"><p class="loading">Loading…</p></div>
+  </section>
+
+  <section aria-labelledby="actuator-heading">
+    <h2 id="actuator-heading">Actuator endpoints</h2>
+    <div class="panel" id="actuator-content" aria-live="polite"><p class="loading">Loading…</p></div>
+  </section>
+
+  <script>
+    const browserTime = document.getElementById('browser-time');
+    const serverTime = document.getElementById('server-time');
+    const serverTimeStatus = document.getElementById('server-time-status');
+    let serverOffset = 0;
+
+    function formatTime(date) {
+      return date.toLocaleTimeString();
+    }
+
+    function tickClocks() {
+      const now = Date.now();
+      browserTime.dateTime = new Date(now).toISOString();
+      browserTime.textContent = formatTime(new Date(now));
+      const serverNow = new Date(now + serverOffset);
+      serverTime.dateTime = serverNow.toISOString();
+      serverTime.textContent = serverNow.toISOString().replace('T', ' ').replace('Z', ' UTC');
+    }
+
+    async function syncServerTime() {
+      try {
+        const response = await fetch('/api/time');
+        if (!response.ok) throw new Error('Request failed');
+        const data = await response.json();
+        serverOffset = Date.parse(data.utc) - Date.now();
+        serverTimeStatus.textContent = '';
+      } catch (_) {
+        serverTimeStatus.textContent = 'Unable to load server time.';
+        serverTimeStatus.className = 'status error';
+      }
+      tickClocks();
+    }
+
+    function makeCell(text) {
+      const cell = document.createElement('td');
+      cell.textContent = text;
+      return cell;
+    }
+
+    async function loadRoutes() {
+      const section = document.getElementById('routes-content');
+      try {
+        const response = await fetch('/api/routes');
+        if (!response.ok) throw new Error('Request failed');
+        const routes = await response.json();
+        const table = document.createElement('table');
+        const head = document.createElement('thead');
+        const headingRow = document.createElement('tr');
+        for (const label of ['Method', 'URL']) {
+          const heading = document.createElement('th');
+          heading.scope = 'col';
+          heading.textContent = label;
+          headingRow.append(heading);
+        }
+        head.append(headingRow);
+        table.append(head);
+        const body = document.createElement('tbody');
+        for (const route of routes) {
+          for (const method of route.methods) {
+            const row = document.createElement('tr');
+            row.append(makeCell(method));
+            const urlCell = document.createElement('td');
+            const url = window.location.origin + route.path;
+            if (method === 'GET' && !route.path.includes('{')) {
+              const link = document.createElement('a');
+              link.href = url;
+              link.textContent = url;
+              urlCell.append(link);
+            } else {
+              urlCell.textContent = url;
+            }
+            row.append(urlCell);
+            body.append(row);
+          }
+        }
+        table.append(body);
+        section.replaceChildren(table);
+      } catch (_) {
+        const error = document.createElement('p');
+        error.className = 'error';
+        error.textContent = 'Unable to load API routes.';
+        section.replaceChildren(error);
+      }
+    }
+
+    async function loadActuator() {
+      const section = document.getElementById('actuator-content');
+      try {
+        const response = await fetch('/actuator');
+        if (!response.ok) throw new Error('Request failed');
+        const data = await response.json();
+        const list = document.createElement('ul');
+        for (const [name, linkData] of Object.entries(data._links)) {
+          if (name === 'self') continue;
+          const item = document.createElement('li');
+          const method = name === 'shutdown' ? 'POST' : 'GET';
+          item.append(document.createTextNode(method + ' '));
+          if (linkData.templated === true) {
+            const url = window.location.origin + new URL(linkData.href).pathname;
+            item.append(document.createTextNode(name + ' (' + url + ')'));
+          } else if (name === 'shutdown') {
+            const url = window.location.origin + new URL(linkData.href).pathname;
+            item.append(document.createTextNode(name + ' (' + url + ')'));
+          } else {
+            const url = window.location.origin + new URL(linkData.href).pathname;
+            const link = document.createElement('a');
+            link.href = url;
+            link.textContent = name + ' (' + url + ')';
+            item.append(link);
+          }
+          list.append(item);
+        }
+        section.replaceChildren(list);
+      } catch (_) {
+        const error = document.createElement('p');
+        error.className = 'error';
+        error.textContent = 'Unable to load Actuator endpoints.';
+        section.replaceChildren(error);
+      }
+    }
+
+    tickClocks();
+    window.setInterval(tickClocks, 1000);
+    syncServerTime();
+    window.setInterval(syncServerTime, 60000);
+    loadRoutes();
+    loadActuator();
+  </script>
+</body>
+</html>

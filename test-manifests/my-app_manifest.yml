@@ -1,0 +1,21 @@
+---
+applications:
+- name: my-app
+  env:
+    JBP_CONFIG_OPEN_JDK_JRE: "{ jre: { version: 17.+ }}"
+  buildpacks:
+  - https://github.com/paketo-buildpacks/java
+  lifecycle: cnb
+  stack: cflinuxfs4
+  routes:
+  - route: my-app.apps.dhaka.cf-app.com
+    protocol: http1
+    options: {}
+  processes:
+  - type: web
+    instances: 1
+    memory: 1024M
+    disk_quota: 1024M
+    log-rate-limit-per-second: 16K
+    health-check-type: port
+    readiness-health-check-type: process
