@@ -31,3 +31,9 @@ build/
 ### VS Code ###
 .vscode/
 settings.xml
+
+### Local artifacts ###
+.DS_Store
+.superpowers/
+docs/
+features/
