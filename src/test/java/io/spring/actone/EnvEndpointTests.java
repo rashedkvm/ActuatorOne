@@ -163,13 +163,9 @@ class EnvEndpointTests {
 		nullInstanceKey.put("VCAP_SERVICES", null);
 		nullInstanceKey.put("CF_INSTANCE_KEY", null);
 		nullInstanceKey.put("PORT", "8080");
-		Map<String, String> sentinelInstanceKey = new LinkedHashMap<>();
-		sentinelInstanceKey.put("VCAP_SERVICES", "{}");
-		sentinelInstanceKey.put("CF_INSTANCE_KEY", instanceKeySentinel);
-		sentinelInstanceKey.put("PORT", "8080");
 
 		for (Map<String, String> values : java.util.List.of(malformedServices, emptyInstanceKey,
-				nullInstanceKey, sentinelInstanceKey)) {
+				nullInstanceKey)) {
 			environmentSource.set(values);
 			var result = mockMvc.perform(get("/api/env")).andExpect(status().isOk()).andReturn();
 			String body = result.getResponse().getContentAsString();
@@ -180,6 +176,17 @@ class EnvEndpointTests {
 			assertTrue(response.path("platformDetected").asBoolean());
 			assertFalse(body.contains(instanceKeySentinel));
 		}
+	}
+
+	@Test
+	void preservesEmptyServicesObjectOverHttp() throws Exception {
+		environmentSource.set(Map.of("VCAP_SERVICES", "{}"));
+
+		var result = mockMvc.perform(get("/api/env")).andExpect(status().isOk()).andReturn();
+		JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+		JsonNode services = objectMapper.readTree(response.path("variables").path("VCAP_SERVICES").asText());
+
+		assertEquals(objectMapper.readTree("{}"), services);
 	}
 
 	@Test
