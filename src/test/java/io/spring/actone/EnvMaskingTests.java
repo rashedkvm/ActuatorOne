@@ -5,13 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.core.read.ListAppender;
 
 class EnvMaskingTests {
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Test
 	void masksBindingCredentials() throws Exception {
@@ -35,14 +39,14 @@ class EnvMaskingTests {
 				+ "{\"credentials\":\"****\"},"
 				+ "{\"credentials\":\"****\"},"
 				+ "{}],\"second\":[{\"credentials\":\"****\"}]}";
-		assertEquals(expected, EnvController.maskVcapServices(input));
+		assertEquals(readTree(expected), readTree(EnvController.maskVcapServices(input)));
 	}
 
 	@Test
-	void leavesNonCredentialMembersIntact() {
+	void leavesNonCredentialMembersIntact() throws Exception {
 		String input = "{\"service\":[{\"Credentials\":{\"password\":\"keep\"},"
 				+ "\"metadata\":{\"credentials\":\"keep\"},\"name\":\"binding\"}]}";
-		assertEquals(input, EnvController.maskVcapServices(input));
+		assertEquals(readTree(input), readTree(EnvController.maskVcapServices(input)));
 	}
 
 	@Test
@@ -55,7 +59,7 @@ class EnvMaskingTests {
 				"[]", "null", "\"text\"", "12",
 				"{\"service\":{}}", "{\"service\":[1]}",
 				"{\"valid\":[{\"credentials\":\"secret\"}],\"invalid\":[1]}",
-				"{\"service\":[" + "[".repeat(1100) + "0" + "]".repeat(1100) + "]}");
+				"{\"service\":[{\"metadata\":" + "[".repeat(1100) + "0" + "]".repeat(1100) + "}]}");
 		for (String invalid : invalidValues) {
 			assertEquals("****", EnvController.maskVcapServices(invalid), invalid);
 		}
@@ -65,18 +69,37 @@ class EnvMaskingTests {
 	@Test
 	void neverEchoesInputOnFailure() {
 		Logger logger = (Logger) LoggerFactory.getLogger(EnvController.class);
-		ListAppender<ILoggingEvent> appender = new ListAppender<>();
-		appender.start();
-		logger.addAppender(appender);
+		Logger rootLogger = (Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+		ListAppender<ILoggingEvent> controllerAppender = new ListAppender<>();
+		ListAppender<ILoggingEvent> rootAppender = new ListAppender<>();
+		controllerAppender.start();
+		rootAppender.start();
+		logger.addAppender(controllerAppender);
+		rootLogger.addAppender(rootAppender);
 		String sentinel = "vcap-sensitive-sentinel";
 		try {
-			assertEquals("****", EnvController.maskVcapServices("malformed " + sentinel));
-			assertTrue(appender.list.stream().map(ILoggingEvent::getFormattedMessage)
-					.noneMatch(message -> message.contains(sentinel)));
+			assertEquals("****", EnvController.maskVcapServices(
+					"{\"service\":[{\"credentials\":\"" + sentinel));
+			List<ILoggingEvent> events = new java.util.ArrayList<>(rootAppender.list);
+			events.addAll(controllerAppender.list);
+			assertTrue(events.stream().map(EnvMaskingTests::renderEvent)
+					.noneMatch(rendering -> rendering.contains(sentinel)));
 		} finally {
-			logger.detachAppender(appender);
-			appender.stop();
+			logger.detachAppender(controllerAppender);
+			rootLogger.detachAppender(rootAppender);
+			controllerAppender.stop();
+			rootAppender.stop();
 		}
+	}
+
+	private JsonNode readTree(String value) throws Exception {
+		return objectMapper.readTree(value);
+	}
+
+	private static String renderEvent(ILoggingEvent event) {
+		String throwable = event.getThrowableProxy() == null ? ""
+				: ThrowableProxyUtil.asString(event.getThrowableProxy());
+		return event.getFormattedMessage() + "\n" + throwable;
 	}
 
 	@Test

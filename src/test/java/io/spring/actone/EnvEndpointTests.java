@@ -1,6 +1,9 @@
 package io.spring.actone;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,6 +12,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -29,6 +34,9 @@ class EnvEndpointTests {
 
 	@Autowired
 	private TestEnvironmentSource environmentSource;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Test
 	void returnsSortedVariablesAndCount() throws Exception {
@@ -113,6 +121,65 @@ class EnvEndpointTests {
 				.andExpect(jsonPath("$.count").value(2))
 				.andExpect(jsonPath("$.variables.PORT").value(""))
 				.andExpect(jsonPath("$.variables.HOME").value(org.hamcrest.Matchers.nullValue()));
+	}
+
+	@Test
+	void masksProtectedValuesOverHttp() throws Exception {
+		String credentialSentinel = "http-credential-sentinel";
+		String instanceKeySentinel = "http-instance-key-sentinel";
+		environmentSource.set(Map.of(
+				"VCAP_SERVICES", "{\"postgresql\":[{\"credentials\":{\"password\":\""
+						+ credentialSentinel + "\"},\"name\":\"db\"}]}",
+				"CF_INSTANCE_KEY", instanceKeySentinel));
+
+		var result = mockMvc.perform(get("/api/env"))
+				.andExpect(status().isOk())
+				.andReturn();
+		String body = result.getResponse().getContentAsString();
+		JsonNode response = objectMapper.readTree(body);
+		assertEquals("****", response.path("variables").path("CF_INSTANCE_KEY").asText());
+		JsonNode expectedServices = objectMapper.readTree(
+				"{\"postgresql\":[{\"credentials\":\"****\",\"name\":\"db\"}]}");
+		JsonNode services = objectMapper.readTree(response.path("variables").path("VCAP_SERVICES").asText());
+		assertEquals(expectedServices, services);
+		assertEquals(2, response.path("count").asInt());
+		assertTrue(response.path("platformDetected").asBoolean());
+		assertFalse(body.contains(credentialSentinel));
+		assertFalse(body.contains(instanceKeySentinel));
+	}
+
+	@Test
+	void failsClosedOverHttp() throws Exception {
+		String instanceKeySentinel = "empty-instance-key-sentinel";
+		Map<String, String> malformedServices = new LinkedHashMap<>();
+		malformedServices.put("VCAP_SERVICES", "{malformed");
+		malformedServices.put("CF_INSTANCE_KEY", "key");
+		malformedServices.put("PORT", "8080");
+		Map<String, String> emptyInstanceKey = new LinkedHashMap<>();
+		emptyInstanceKey.put("VCAP_SERVICES", "null");
+		emptyInstanceKey.put("CF_INSTANCE_KEY", "");
+		emptyInstanceKey.put("PORT", "8080");
+		Map<String, String> nullInstanceKey = new LinkedHashMap<>();
+		nullInstanceKey.put("VCAP_SERVICES", null);
+		nullInstanceKey.put("CF_INSTANCE_KEY", null);
+		nullInstanceKey.put("PORT", "8080");
+		Map<String, String> sentinelInstanceKey = new LinkedHashMap<>();
+		sentinelInstanceKey.put("VCAP_SERVICES", "{}");
+		sentinelInstanceKey.put("CF_INSTANCE_KEY", instanceKeySentinel);
+		sentinelInstanceKey.put("PORT", "8080");
+
+		for (Map<String, String> values : java.util.List.of(malformedServices, emptyInstanceKey,
+				nullInstanceKey, sentinelInstanceKey)) {
+			environmentSource.set(values);
+			var result = mockMvc.perform(get("/api/env")).andExpect(status().isOk()).andReturn();
+			String body = result.getResponse().getContentAsString();
+			JsonNode response = objectMapper.readTree(body);
+			assertEquals("****", response.path("variables").path("VCAP_SERVICES").asText());
+			assertEquals("****", response.path("variables").path("CF_INSTANCE_KEY").asText());
+			assertEquals(3, response.path("count").asInt());
+			assertTrue(response.path("platformDetected").asBoolean());
+			assertFalse(body.contains(instanceKeySentinel));
+		}
 	}
 
 	@Test

@@ -20,6 +20,10 @@ class EnvGateTests {
 
 	@Test
 	void disabledByDefault() throws Exception {
+		assertEndpointDisabled(mockMvc);
+	}
+
+	static void assertEndpointDisabled(MockMvc mockMvc) throws Exception {
 		mockMvc.perform(get("/api/env")).andExpect(status().isNotFound());
 		mockMvc.perform(get("/api/routes"))
 				.andExpect(status().isOk())
@@ -36,7 +40,7 @@ class EnvGateDisabledTests {
 
 	@Test
 	void disabledWhenFalse() throws Exception {
-		mockMvc.perform(get("/api/env")).andExpect(status().isNotFound());
+		EnvGateTests.assertEndpointDisabled(mockMvc);
 	}
 }
 
@@ -49,7 +53,59 @@ class EnvGateCaseVariantTests {
 
 	@Test
 	void disabledForCaseVariant() throws Exception {
-		mockMvc.perform(get("/api/env")).andExpect(status().isNotFound());
+		EnvGateTests.assertEndpointDisabled(mockMvc);
+	}
+}
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@TestPropertySource(properties = "actone.env.enabled=True")
+class EnvGateTitleCaseTests {
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Test
+	void disabledForTitleCaseValue() throws Exception {
+		EnvGateTests.assertEndpointDisabled(mockMvc);
+	}
+}
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@TestPropertySource(properties = "actone.env.enabled=1")
+class EnvGateNumericValueTests {
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Test
+	void disabledForNumericValue() throws Exception {
+		EnvGateTests.assertEndpointDisabled(mockMvc);
+	}
+}
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@TestPropertySource(properties = "actone.env.enabled=yes")
+class EnvGateYesValueTests {
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Test
+	void disabledForYesValue() throws Exception {
+		EnvGateTests.assertEndpointDisabled(mockMvc);
+	}
+}
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@TestPropertySource(properties = "actone.env.enabled=")
+class EnvGateEmptyValueTests {
+	@Autowired
+	private MockMvc mockMvc;
+
+	@Test
+	void disabledForEmptyValue() throws Exception {
+		EnvGateTests.assertEndpointDisabled(mockMvc);
 	}
 }
 
