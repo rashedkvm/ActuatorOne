@@ -34,4 +34,13 @@ class HomePageTests {
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("Server time")))
 				.andExpect(content().string(org.hamcrest.Matchers.containsString("API routes")));
 	}
+
+	@Test
+	void homePageContainsEnvironmentSection() throws Exception {
+		mockMvc.perform(MockMvcRequestBuilders.get("/index.html"))
+				.andExpect(status().isOk())
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"env-heading\"")))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"env-content\"")))
+				.andExpect(content().string(org.hamcrest.Matchers.containsString("not a complete environment")));
+	}
 }

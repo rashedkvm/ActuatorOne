@@ -59,6 +59,12 @@
     <div class="panel" id="actuator-content" aria-live="polite"><p class="loading">Loading…</p></div>
   </section>
 
+  <section aria-labelledby="env-heading">
+    <h2 id="env-heading">Environment</h2>
+    <p id="env-note">Selected Cloud Foundry-related variables, not a complete environment. VCAP_SERVICES credentials and CF_INSTANCE_KEY are masked.</p>
+    <div class="panel" id="env-content" aria-live="polite"><p class="loading">Loading…</p></div>
+  </section>
+
   <script>
     const browserTime = document.getElementById('browser-time');
     const serverTime = document.getElementById('server-time');
@@ -180,12 +186,66 @@
       }
     }
 
+    async function loadEnvironment() {
+      const section = document.getElementById('env-content');
+      try {
+        const response = await fetch('/api/env');
+        if (response.status === 404) {
+          const disabled = document.createElement('p');
+          disabled.textContent = 'Environment view is disabled. Set ACTONE_ENV_ENABLED to true in the app manifest env and re-push to enable it.';
+          section.replaceChildren(disabled);
+          return;
+        }
+        if (!response.ok) throw new Error('Request failed');
+        const data = await response.json();
+        const content = [];
+        if (data.platformDetected === false) {
+          const notice = document.createElement('p');
+          notice.textContent = 'No VCAP_*/CF_* variables detected — this app does not appear to be running on Cloud Foundry.';
+          content.push(notice);
+        }
+        if (data.count === 0) {
+          const empty = document.createElement('p');
+          empty.textContent = 'No matching variables.';
+          content.push(empty);
+        } else {
+          const table = document.createElement('table');
+          const head = document.createElement('thead');
+          const headingRow = document.createElement('tr');
+          for (const label of ['Name', 'Value']) {
+            const heading = document.createElement('th');
+            heading.scope = 'col';
+            heading.textContent = label;
+            headingRow.append(heading);
+          }
+          head.append(headingRow);
+          table.append(head);
+          const body = document.createElement('tbody');
+          for (const [name, value] of Object.entries(data.variables)) {
+            const row = document.createElement('tr');
+            row.append(makeCell(name));
+            row.append(makeCell(value === null ? 'null' : value));
+            body.append(row);
+          }
+          table.append(body);
+          content.push(table);
+        }
+        section.replaceChildren(...content);
+      } catch (_) {
+        const error = document.createElement('p');
+        error.className = 'error';
+        error.textContent = 'Unable to load environment variables.';
+        section.replaceChildren(error);
+      }
+    }
+
     tickClocks();
     window.setInterval(tickClocks, 1000);
     syncServerTime();
     window.setInterval(syncServerTime, 60000);
     loadRoutes();
     loadActuator();
+    loadEnvironment();
   </script>
 </body>
 </html>
