@@ -3,8 +3,10 @@ package io.spring.actone;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,23 @@ class EnvMaskingTests {
 		String input = "{\"service\":[{\"Credentials\":{\"password\":\"keep\"},"
 				+ "\"metadata\":{\"credentials\":\"keep\"},\"name\":\"binding\"}]}";
 		assertEquals(readTree(input), readTree(EnvController.maskVcapServices(input)));
+	}
+
+	@Test
+	void preservesLargeAndPreciseNumbersWhileMaskingCredentials() throws Exception {
+		String input = "{\"service\":[{\"credentials\":\"secret\","
+				+ "\"quota\":1e400,\"precise\":12345678901234567890.123456789}]}";
+		ObjectMapper preciseMapper = new ObjectMapper()
+				.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+
+		JsonNode result = preciseMapper.readTree(EnvController.maskVcapServices(input));
+		JsonNode binding = result.path("service").get(0);
+		assertEquals("****", binding.path("credentials").asText());
+		assertTrue(binding.path("quota").isNumber());
+		assertEquals(0, binding.path("quota").decimalValue().compareTo(new BigDecimal("1e400")));
+		assertTrue(binding.path("precise").isNumber());
+		assertEquals(0, binding.path("precise").decimalValue()
+				.compareTo(new BigDecimal("12345678901234567890.123456789")));
 	}
 
 	@Test

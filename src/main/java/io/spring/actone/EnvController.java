@@ -35,7 +35,8 @@ public class EnvController {
 	private static final int MAX_JSON_DEPTH = 100;
 	private static final ObjectMapper VCAP_SERVICES_MAPPER = new ObjectMapper()
 			.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-			.enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY);
+			.enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+			.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
 	private static final String MASKED_VALUE = "****";
 	private static final String[] ALLOWED_NAMES = {
 			"PORT", "MEMORY_LIMIT", "INSTANCE_INDEX", "INSTANCE_GUID", "LANG", "TMPDIR", "USER", "HOME"
