@@ -1,6 +1,6 @@
 applications:
   - name: actuator-one-binary
-    stack: cflinuxfs4
+    stack: tanzucflinuxfs1
     memory: 1G
     random-route: true
     buildpacks:

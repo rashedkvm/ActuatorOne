@@ -1,6 +1,6 @@
 applications:
   - name: actuator-one-docker
-    stack: cflinuxfs4
+    stack: tanzucflinuxfs1
     memory: 1G
     disk_quota: 2G
     random-route: true
