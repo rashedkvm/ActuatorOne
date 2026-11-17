@@ -8,3 +8,4 @@ applications:
     path: target/actone-0.0.3-SNAPSHOT.jar
     env:
       JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 17.+ } }'
+      ACTONE_ENV_ENABLED: 'false'

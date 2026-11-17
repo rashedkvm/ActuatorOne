@@ -29,6 +29,15 @@ Use package `io.spring.actone`, PascalCase class names, and camelCase methods an
 
 Tests use JUnit Jupiter through `spring-boot-starter-test`. Follow the existing `*Tests.java` naming convention. Use `@SpringBootTest` for application-context checks and add endpoint assertions when changing controller behavior. Run `./mvnw test` before submitting changes. No coverage threshold is configured.
 
+## Platform Environment Variables (`ACTONE_ENV_ENABLED`)
+
+`EnvController` serves `/api/env` and the home page's Environment section. It is **off by default**.
+- Enable it by setting `ACTONE_ENV_ENABLED` to exactly lowercase `true` (`manifest.yml` ships `'false'`). Any other value, including `TRUE`, `1` or unset, disables it; `/api/env` then returns 404 and is not listed in `/api/routes`.
+- Set it in the manifest `env:` block, or use `cf set-env actuator-one ACTONE_ENV_ENABLED true`. The value is read at startup, so restage or restart afterward; during a rolling restart old and new instances can briefly disagree.
+- Output is an allowlist: `VCAP_*`, `CF_*`, `PORT`, `MEMORY_LIMIT`, `INSTANCE_INDEX`, `INSTANCE_GUID`, `LANG`, `TMPDIR`, `USER`, `HOME`. `DATABASE_URL` is excluded.
+- Only `credentials` members of `VCAP_SERVICES` bindings and `CF_INSTANCE_KEY` are masked as `****`; unparseable `VCAP_SERVICES` is masked entirely. Other values (for example `VCAP_APPLICATION`, service metadata) are returned raw, and `/api/runtime` is unchanged.
+- The app has no authentication and the manifests request routes (`random-route: true`). Enable this only on a restricted route, with no bound services holding real secrets.
+
 ## Commit & Pull Request Guidelines
 
 The available history contains one descriptive, imperative commit: `Provide Spring Actuator Sample Application`. Follow that concise style; no formal commit convention is established. Pull requests should describe the change, include validation commands and results, and link relevant issues. Explain configuration or deployment effects when modifying properties, manifests, or Dockerfiles.

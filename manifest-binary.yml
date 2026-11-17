@@ -9,3 +9,5 @@ applications:
     command: ./actone
     health-check-type: http
     health-check-http-endpoint: /actuator/health
+    env:
+      ACTONE_ENV_ENABLED: 'false'
